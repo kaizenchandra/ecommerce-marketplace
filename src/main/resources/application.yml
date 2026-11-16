@@ -1,0 +1,138 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  servlet:
+    session:
+      cookie:
+        name: JSESSIONID
+        http-only: true
+        same-site: lax
+        secure: ${COOKIE_SECURE:true}
+      timeout: 30m
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.block.ms: 3000
+        delivery.timeout.ms: 5000
+        request.timeout.ms: 2000
+    admin:
+      fail-fast: false
+  session:
+    jdbc:
+      initialize-schema: never
+    timeout: 30m
+  application:
+    name: marketplace
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/marketplace}
+    username: ${DB_USER:marketplace}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 16
+      connection-timeout: 3000
+      data-source-properties:
+        connectTimeout: 3
+        socketTimeout: 5
+        tcpKeepAlive: true
+      connection-init-sql: SET statement_timeout = '5s'
+  jdbc:
+    template:
+      query-timeout: 5
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      connect-timeout: 200ms
+      timeout: 200ms
+management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: readinessState,db
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    redis:
+      enabled: false
+marketplace:
+  cache-enabled: ${CACHE_ENABLED:false}
+  webhook-secret: ${WEBHOOK_SECRET:disabled}
+  worker-delay: 1000
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+server:
+  servlet:
+    session:
+      cookie:
+        secure: ${COOKIE_SECURE:false}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: production
+  security:
+    oauth2:
+      client:
+        registration:
+          marketplace:
+            provider: marketplace
+            client-id: ${OIDC_CLIENT_ID}
+            client-secret: ${OIDC_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: ${OIDC_REDIRECT_URI:{baseUrl}/login/oauth2/code/{registrationId}}
+            scope: openid,profile
+        provider:
+          marketplace:
+            issuer-uri: ${OIDC_ISSUER_URI}
+marketplace:
+  identity:
+    audience: ${OIDC_AUDIENCE:marketplace}
+    roles-client: ${OIDC_ROLES_CLIENT:marketplace}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: stripe
+marketplace:
+  public-url: ${MARKETPLACE_PUBLIC_URL}
+  payment:
+    provider: stripe
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: kafka
+marketplace:
+  events:
+    transport: kafka

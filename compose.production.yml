@@ -1,0 +1,16 @@
+# OIDC + shared JDBC sessions + Stripe test mode. TLS/IdP are externally operated.
+# This switches auth/payment code paths; it does not certify a production marketplace.
+services:
+  app:
+    environment:
+      SPRING_PROFILES_ACTIVE: production,stripe
+      COOKIE_SECURE: 'true'
+      MARKETPLACE_PUBLIC_URL: ${MARKETPLACE_PUBLIC_URL:?HTTPS public origin required}
+      OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:?OIDC issuer required}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?OIDC client required}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?OIDC secret required}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-marketplace}
+      OIDC_ROLES_CLIENT: ${OIDC_ROLES_CLIENT:-marketplace}
+      OIDC_REDIRECT_URI: ${MARKETPLACE_PUBLIC_URL}/login/oauth2/code/marketplace
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?Stripe test key required}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?Stripe webhook secret required}

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Market Lane · Marketplace sandbox</title>
+    <link href="/style.css" rel="stylesheet">
+</head>
+<body>
+<header><a href="/">MARKET LANE</a><span>Multi-seller marketplace · INR · Sandbox</span><a href="/login">Sign in</a>
+    <button id="logout">Sign out</button>
+</header>
+<nav>
+    <button data-view="shop">Discover</button>
+    <button data-view="cart">Your cart</button>
+    <button data-view="orders">Orders</button>
+    <button data-view="seller">Seller desk</button>
+    <button data-view="admin">Operations</button>
+</nav>
+<main><p id="notice" role="status">Browse goods from independent sellers. Availability is confirmed at checkout.</p>
+    <section id="shop"><h1>Good finds. Independent sellers.</h1>
+        <form id="search"><input name="q" placeholder="Search the marketplace"><select name="category">
+            <option value="">All categories</option>
+            <option>electronics</option>
+            <option>books</option>
+        </select><select name="sort">
+            <option value="relevance">Relevance</option>
+            <option value="price">Price: low to high</option>
+            <option value="price_desc">Price: high to low</option>
+        </select>
+            <button>Search</button>
+        </form>
+        <div class="grid" id="products"></div>
+        <div id="detail"></div>
+    </section>
+    <section hidden id="cart"><h1>Your cart</h1>
+        <div id="cart-items"></div>
+        <h2>Delivery address</h2>
+        <form id="address"><input name="line1" placeholder="Street address" required><input name="city"
+                                                                                            placeholder="City" required><input
+                name="postalCode" pattern="[0-9]{6}" placeholder="Indian postal code" required><input name="state"
+                                                                                                      pattern="[A-Z]{2,3}"
+                                                                                                      placeholder="State code (e.g. MH)">
+            <button>Save address</button>
+        </form>
+        <form id="quote"><select id="addresses" name="addressId" required></select><input name="coupon"
+                                                                                          placeholder="Coupon (WELCOME10)">
+            <button>Calculate quote</button>
+        </form>
+        <div id="quote-result"></div>
+        <button hidden id="purchase">Place order</button>
+        <p>Offline defaults use free shipping and tax-exempt fixtures; configured providers return authoritative
+            shipping and tax amounts. Hosted Stripe test checkout, when configured, collects payment details on Stripe.
+            Quotes expire in five minutes.</p></section>
+    <section hidden id="orders"><h1>Your orders</h1>
+        <button id="refresh-orders">Refresh</button>
+        <div id="order-list"></div>
+    </section>
+    <section hidden id="seller"><h1>Seller desk</h1>
+        <div id="seller-profile"></div>
+        <form id="onboard"><input name="name" placeholder="Store name" required>
+            <button>Request seller onboarding</button>
+        </form>
+        <h2>Create offer</h2>
+        <form id="offer"><input name="variantId" placeholder="Canonical variant UUID" required><input min="0.01"
+                                                                                                      name="price"
+                                                                                                      placeholder="INR price"
+                                                                                                      required
+                                                                                                      step="0.01"
+                                                                                                      type="number">
+            <button>Create offer</button>
+        </form>
+        <div id="seller-offers"></div>
+        <h2>Fulfillment</h2>
+        <div id="seller-orders"></div>
+        <h2>Shipping labels</h2>
+        <div id="seller-labels"></div>
+    </section>
+    <section hidden id="admin"><h1>Marketplace operations</h1>
+        <h2>Sellers</h2>
+        <div id="admin-sellers"></div>
+        <h2>Create product</h2>
+        <form id="create-product"><input name="name" placeholder="Product name" required><input name="brand"
+                                                                                                placeholder="Brand"
+                                                                                                required><input
+                name="description" placeholder="Description" required><input name="categoryId" placeholder="Category ID"
+                                                                             required>
+            <button>Create product</button>
+        </form>
+        <h2>Create variant</h2>
+        <form id="create-variant"><input name="productId" placeholder="Product UUID" required><input name="sku"
+                                                                                                     placeholder="Unique SKU"
+                                                                                                     required><input
+                name="color" placeholder="Color">
+            <button>Create variant</button>
+        </form>
+        <h2>Catalog moderation</h2>
+        <form id="moderate"><input name="id" placeholder="Product UUID" required><select name="status">
+            <option>HIDDEN</option>
+            <option>ACTIVE</option>
+        </select>
+            <button>Apply</button>
+        </form>
+        <h2>Sandbox carrier</h2>
+        <div id="admin-shipments"></div>
+        <h2>Return inspection</h2>
+        <div id="admin-returns"></div>
+        <h2>Workflow status</h2>
+        <pre id="admin-status"></pre>
+        <h2>Tax reporting</h2>
+        <pre id="tax-reporting"></pre>
+        <h2>Shipping purchase recovery</h2>
+        <pre id="label-recovery"></pre>
+    </section>
+</main>
+<footer>Development simulator · No real charges · No compliance verification</footer>
+<script src="/app.js"></script>
+</body>
+</html>

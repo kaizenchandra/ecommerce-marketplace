@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "orderId": "bdacac5f-8f44-4a89-a8c6-0f4f07506bab",
+  "labelId": "fd21a6ec-20b6-4f2b-8557-67fbf95489d1",
+  "labelPurchases": 1,
+  "shipments": 1,
+  "partialRefunds": 2,
+  "refundedMinor": 599800
+}

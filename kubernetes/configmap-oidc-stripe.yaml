@@ -1,0 +1,19 @@
+# Apply after marketplace.yaml and populate marketplace-secrets, then rollout restart.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: marketplace }
+data:
+  SPRING_PROFILES_ACTIVE: production,stripe
+  DB_URL: jdbc:postgresql://postgres:5432/marketplace
+  DB_USER: marketplace
+  REDIS_HOST: redis
+  CACHE_ENABLED: 'true'
+  COOKIE_SECURE: 'true'
+  MARKETPLACE_PUBLIC_URL: https://marketplace.example.com
+  OIDC_ISSUER_URI: https://identity.example.com/realms/marketplace
+  OIDC_CLIENT_ID: marketplace
+  OIDC_AUDIENCE: marketplace
+  OIDC_ROLES_CLIENT: marketplace
+  OIDC_REDIRECT_URI: https://marketplace.example.com/login/oauth2/code/marketplace
+# marketplace-secrets must contain DB_PASSWORD, OIDC_CLIENT_SECRET,
+# STRIPE_SECRET_KEY (sk_test_), STRIPE_WEBHOOK_SECRET (whsec_).

@@ -1,0 +1,8 @@
+# Stripe test mode with local login. No live keys accepted. Use with compose.yml.
+services:
+  app:
+    environment:
+      SPRING_PROFILES_ACTIVE: local,stripe
+      MARKETPLACE_PUBLIC_URL: ${MARKETPLACE_PUBLIC_URL:-http://localhost:8097}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?set a Stripe test secret key}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?set the Stripe webhook signing secret}

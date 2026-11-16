@@ -1,0 +1,4550 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Market Lane sandbox API",
+    "version": "1.0.0",
+    "description": "INR minor units in responses. Local form session + CSRF. Seller resources are owner-scoped. Capture-only simulator; no real money. All successful API operations currently return 200. Production browser OIDC uses shared JDBC sessions; bearer requests use a separate stateless JWT chain. Stripe test mode supplies hosted checkout_url in owned payment responses; redirects never establish payment success."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8097/api/v1"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "JSESSIONID"
+      },
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "CartItem": {
+        "type": "object",
+        "properties": {
+          "offerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "offerId",
+          "quantity"
+        ],
+        "additionalProperties": false
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "line1": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,3}$"
+          }
+        },
+        "required": [
+          "line1",
+          "city",
+          "postalCode"
+        ],
+        "additionalProperties": false
+      },
+      "Quote": {
+        "type": "object",
+        "properties": {
+          "addressId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "coupon": {
+            "type": "string",
+            "maxLength": 40
+          }
+        },
+        "required": [
+          "addressId"
+        ],
+        "additionalProperties": false
+      },
+      "Checkout": {
+        "type": "object",
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "quoteId"
+        ],
+        "additionalProperties": false
+      },
+      "Offer": {
+        "type": "object",
+        "properties": {
+          "variantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "price": {
+            "type": "string",
+            "description": "Exact INR decimal, up to two fractional digits",
+            "example": "2999.00"
+          }
+        },
+        "required": [
+          "variantId",
+          "price"
+        ],
+        "additionalProperties": false
+      },
+      "Adjustment": {
+        "type": "object",
+        "properties": {
+          "offerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "delta": {
+            "type": "integer",
+            "minimum": -1000000,
+            "maximum": 1000000
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 150
+          }
+        },
+        "required": [
+          "offerId",
+          "delta",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "Webhook": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CAPTURED",
+              "FAILED",
+              "REFUNDED"
+            ]
+          }
+        },
+        "required": [
+          "eventId",
+          "paymentId",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "Shipment": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "carrier": {
+            "type": "string"
+          },
+          "tracking": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "itemId",
+          "carrier",
+          "tracking"
+        ],
+        "additionalProperties": false
+      },
+      "Return": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "shipmentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "itemId",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "Inspection": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "restock": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted",
+          "restock"
+        ],
+        "additionalProperties": false
+      },
+      "State": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "displayName",
+          "active"
+        ],
+        "additionalProperties": false
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "stars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "stars",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "Seller": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "brand",
+          "description",
+          "categoryId"
+        ],
+        "additionalProperties": false
+      },
+      "Variant": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "sku",
+          "attributes"
+        ],
+        "additionalProperties": false
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "Quantity": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "quantity"
+        ],
+        "additionalProperties": false
+      },
+      "LabelPurchase": {
+        "type": "object",
+        "required": [
+          "itemId",
+          "quantity",
+          "maxCostMinor"
+        ],
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "maxCostMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/csrf": {
+      "get": {
+        "summary": "GET /csrf",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/customers/me": {
+      "get": {
+        "summary": "GET /customers/me",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH /customers/me",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Profile"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/me/addresses": {
+      "get": {
+        "summary": "GET /customers/me/addresses",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /customers/me/addresses",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Address"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "summary": "GET /products",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "max",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "summary": "GET /products/{id}",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "summary": "GET /categories",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/search/products": {
+      "get": {
+        "summary": "GET /search/products",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "max",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/search/suggestions": {
+      "get": {
+        "summary": "GET /search/suggestions",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/search/facets": {
+      "get": {
+        "summary": "GET /search/facets",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/products/{id}/recommendations": {
+      "get": {
+        "summary": "GET /products/{id}/recommendations",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/sellers": {
+      "post": {
+        "summary": "POST /sellers",
+        "description": "Authorization: seller. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Seller"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sellers/{id}": {
+      "get": {
+        "summary": "GET /sellers/{id}",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/seller/me": {
+      "get": {
+        "summary": "GET /seller/me",
+        "description": "Authorization: seller. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/seller/offers": {
+      "get": {
+        "summary": "GET /seller/offers",
+        "description": "Authorization: seller. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/seller/orders": {
+      "get": {
+        "summary": "GET /seller/orders",
+        "description": "Authorization: seller. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/sellers/{id}/offers": {
+      "post": {
+        "summary": "POST /sellers/{id}/offers",
+        "description": "Authorization: seller. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Offer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sellers/{id}/offers/{offer}": {
+      "patch": {
+        "summary": "PATCH /sellers/{id}/offers/{offer}",
+        "description": "Authorization: seller. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "offer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Offer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/offers/{id}/availability": {
+      "get": {
+        "summary": "GET /offers/{id}/availability",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/sellers/{id}/inventory/adjustments": {
+      "post": {
+        "summary": "POST /sellers/{id}/inventory/adjustments",
+        "description": "Authorization: seller. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Adjustment"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cart": {
+      "get": {
+        "summary": "GET /cart",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE /cart",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/cart/items": {
+      "post": {
+        "summary": "POST /cart/items",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CartItem"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cart/items/{id}": {
+      "patch": {
+        "summary": "PATCH /cart/items/{id}",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Quantity"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE /cart/items/{id}",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/checkout/quotes": {
+      "post": {
+        "summary": "POST /checkout/quotes",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Quote"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/checkouts": {
+      "post": {
+        "summary": "POST /checkouts",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Checkout"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders": {
+      "get": {
+        "summary": "GET /orders",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "summary": "GET /orders/{id}",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/orders/{id}/cancel": {
+      "post": {
+        "summary": "POST /orders/{id}/cancel",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/payments/{id}/confirm": {
+      "post": {
+        "summary": "POST /payments/{id}/confirm",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/payments/webhooks/{providerName}": {
+      "post": {
+        "summary": "POST /payments/webhooks/{providerName}",
+        "description": "Authorization: webhook. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "providerName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "local"
+              ]
+            }
+          },
+          {
+            "name": "X-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "X-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Webhook"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{id}/shipments": {
+      "get": {
+        "summary": "GET /orders/{id}/shipments",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/seller-orders/{id}/shipments": {
+      "post": {
+        "summary": "POST /seller-orders/{id}/shipments",
+        "description": "Authorization: seller. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Required when quantity is supplied; stable across retries, rejects changed payloads",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Shipment"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{id}/returns": {
+      "post": {
+        "summary": "POST /orders/{id}/returns",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Required when quantity is supplied; stable across retries, rejects changed payloads",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Return"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/returns/{id}": {
+      "get": {
+        "summary": "GET /returns/{id}",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/orders/{id}/refunds": {
+      "get": {
+        "summary": "GET /orders/{id}/refunds",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/products/{id}/reviews": {
+      "post": {
+        "summary": "POST /products/{id}/reviews",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Review"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "GET /products/{id}/reviews",
+        "description": "Authorization: public. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "summary": "GET /notifications",
+        "description": "Authorization: customer. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/admin/sellers": {
+      "get": {
+        "summary": "GET /admin/sellers",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/admin/sellers/{id}": {
+      "patch": {
+        "summary": "PATCH /admin/sellers/{id}",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/State"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/products/{id}": {
+      "patch": {
+        "summary": "PATCH /admin/products/{id}",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/State"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/products": {
+      "post": {
+        "summary": "POST /admin/products",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Product"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/products/{id}/variants": {
+      "post": {
+        "summary": "POST /admin/products/{id}/variants",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Variant"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/categories": {
+      "post": {
+        "summary": "POST /admin/categories",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Category"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/reviews/{id}": {
+      "patch": {
+        "summary": "PATCH /admin/reviews/{id}",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/admin/status": {
+      "get": {
+        "summary": "GET /admin/status",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/admin/returns": {
+      "get": {
+        "summary": "GET /admin/returns",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/admin/shipments": {
+      "get": {
+        "summary": "GET /admin/shipments",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/admin/shipments/{id}/deliver": {
+      "post": {
+        "summary": "POST /admin/shipments/{id}/deliver",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/admin/returns/{id}/inspect": {
+      "post": {
+        "summary": "POST /admin/returns/{id}/inspect",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Inspection"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/workflows/{id}/retry": {
+      "post": {
+        "summary": "POST /admin/workflows/{id}/retry",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/admin/refunds/{id}/retry": {
+      "post": {
+        "summary": "POST /admin/refunds/{id}/retry",
+        "description": "Authorization: admin. Ownership enforced by authenticated subject for customer/seller resources. See docs/api.md for retry and monetary semantics.",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; JSON record or collection"
+          },
+          "400": {
+            "description": "Invalid fields"
+          },
+          "401": {
+            "description": "Authentication/signature required"
+          },
+          "403": {
+            "description": "Role, ownership or CSRF rejected"
+          },
+          "404": {
+            "description": "Resource absent or not owned"
+          },
+          "409": {
+            "description": "State, stock, quote or concurrent constraint conflict"
+          },
+          "429": {
+            "description": "Capacity limited; Retry-After header"
+          },
+          "500": {
+            "description": "Unexpected infrastructure failure; reconcile ambiguous financial operation"
+          }
+        }
+      }
+    },
+    "/sessions": {
+      "get": {
+        "summary": "List current subject browser-session timestamps",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Authorization/CSRF denied"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Revoke all browser sessions for authenticated subject",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser-session mutations; not for bearer-token requests",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Authorization/CSRF denied"
+          }
+        }
+      }
+    },
+    "/admin/customers/{subject}/deactivate": {
+      "post": {
+        "summary": "Deactivate customer and revoke sessions",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser-session mutations; not for bearer-token requests",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Authorization/CSRF denied"
+          }
+        }
+      }
+    },
+    "/admin/payment-events": {
+      "get": {
+        "summary": "List durable provider webhook inbox",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Authorization/CSRF denied"
+          }
+        }
+      }
+    },
+    "/admin/payment-events/{provider}/{eventId}/retry": {
+      "post": {
+        "summary": "Retry manual-review provider event using original identity",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser-session mutations; not for bearer-token requests",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Authorization/CSRF denied"
+          }
+        }
+      }
+    },
+    "/payments/webhooks/stripe": {
+      "post": {
+        "summary": "Verify raw Stripe test event and durably enqueue for reconciliation",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Stripe-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Persisted, duplicate, or ignored event; not synchronous order confirmation"
+          },
+          "401": {
+            "description": "Invalid timestamp/signature"
+          },
+          "400": {
+            "description": "Live event or mismatched order/session/amount"
+          },
+          "409": {
+            "description": "Operation not yet visible; provider should redeliver"
+          }
+        }
+      }
+    },
+    "/sellers/{id}/shipping-profile": {
+      "put": {
+        "summary": "Save owned active seller origin/packing profile",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Invalid state/policy"
+          },
+          "503": {
+            "description": "Provider/broker unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "address": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "lengthCm": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "widthCm": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "heightCm": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "maxWeightGrams": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "address",
+                  "lengthCm",
+                  "widthCm",
+                  "heightCm",
+                  "maxWeightGrams"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/shipments/{id}/retry-tracking": {
+      "post": {
+        "summary": "Resume carrier tracking reconciliation",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Invalid state/policy"
+          },
+          "503": {
+            "description": "Provider/broker unavailable"
+          }
+        }
+      }
+    },
+    "/admin/events/failures": {
+      "get": {
+        "summary": "Inspect durable Kafka dead letters",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Invalid state/policy"
+          },
+          "503": {
+            "description": "Provider/broker unavailable"
+          }
+        }
+      }
+    },
+    "/admin/events/outbox/{id}/retry": {
+      "post": {
+        "summary": "Retry exhausted outbox using original event ID",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Invalid state/policy"
+          },
+          "503": {
+            "description": "Provider/broker unavailable"
+          }
+        }
+      }
+    },
+    "/admin/events/failures/{id}/replay": {
+      "post": {
+        "summary": "Replay original dead-letter envelope after repair",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Invalid state/policy"
+          },
+          "503": {
+            "description": "Provider/broker unavailable"
+          }
+        }
+      }
+    },
+    "/seller-orders/{id}/labels": {
+      "post": {
+        "summary": "Queue owned seller label purchase",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelPurchase"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seller/labels": {
+      "get": {
+        "summary": "List owned label operations",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/shipping-labels/{id}": {
+      "get": {
+        "summary": "Read owned label operation",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/shipping-labels/{id}/dispatch": {
+      "post": {
+        "summary": "Record physical handoff once",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/shipping-labels/{id}/abort": {
+      "post": {
+        "summary": "Abort only an unattempted owned label",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/shipping-labels/{id}/refresh": {
+      "post": {
+        "summary": "Refresh existing provider download link",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/shipping-labels/{id}/document": {
+      "get": {
+        "summary": "Download local simulator non-postage document",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/admin/shipping-labels": {
+      "get": {
+        "summary": "Inspect durable label operations",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/admin/shipping-labels/{id}/retry": {
+      "post": {
+        "summary": "Reconcile original label without clearing intent",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/admin/shipping-labels/{id}/reconcile/{providerId}": {
+      "post": {
+        "summary": "Retrieve and validate original provider label",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/admin/shipping-labels/{id}/abort": {
+      "post": {
+        "summary": "Admin abort before purchase attempt",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/admin/shipping-labels/{id}/release-closed": {
+      "post": {
+        "summary": "Release undispatched quantity only after provider ERROR/REFUNDED evidence",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/admin/tax-reporting": {
+      "get": {
+        "summary": "Inspect sale/reversal jobs and dependencies",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/admin/tax-reporting/{id}/retry": {
+      "post": {
+        "summary": "Retry original tax reference and key",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    },
+    "/admin/tax-reporting/{id}/reconcile/{providerId}": {
+      "post": {
+        "summary": "Validate and attach known provider tax transaction",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "required": false,
+            "description": "Required for browser sessions, not stateless JWT",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable state accepted/read; label purchase is asynchronous"
+          },
+          "403": {
+            "description": "Role/ownership/CSRF denied"
+          },
+          "409": {
+            "description": "Payload/state/quantity/cost/provider evidence mismatch"
+          },
+          "503": {
+            "description": "Provider unavailable; retain original operation"
+          }
+        }
+      }
+    }
+  }
+}

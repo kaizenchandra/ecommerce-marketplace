@@ -1,0 +1,80 @@
+# Sandbox application overlay. PostgreSQL/Redis are externally provisioned.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: marketplace }
+data:
+  SPRING_PROFILES_ACTIVE: local
+  DB_URL: jdbc:postgresql://postgres:5432/marketplace
+  DB_USER: marketplace
+  REDIS_HOST: redis
+  CACHE_ENABLED: 'true'
+  COOKIE_SECURE: 'true'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: marketplace }
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: marketplace }
+  template:
+    metadata:
+      labels: { app: marketplace }
+    spec:
+      terminationGracePeriodSeconds: 40
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001 }
+      containers:
+        - name: marketplace
+          image: marketplace:1.0.0
+          ports: [ { containerPort: 8080 } ]
+          envFrom:
+            - configMapRef: { name: marketplace }
+            - secretRef: { name: marketplace-secrets }
+          resources:
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { cpu: '2', memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ ALL ] }
+          volumeMounts: [ { name: tmp, mountPath: /tmp } ]
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8080 }
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8080 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8080 }
+            periodSeconds: 10
+      volumes: [ { name: tmp, emptyDir: { } } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: marketplace }
+spec:
+  selector: { app: marketplace }
+  ports: [ { port: 80, targetPort: 8080 } ]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: marketplace }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: marketplace }
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: marketplace }
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: marketplace }

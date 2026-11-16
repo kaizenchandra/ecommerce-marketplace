@@ -1,0 +1,8 @@
+# External provider sandboxes, with an explicit merchant/account tax configuration.
+services:
+  app:
+    environment:
+      MARKETPLACE_SHIPPING_PROVIDER: shippo
+      MARKETPLACE_SHIPPO_TOKEN: ${SHIPPO_TEST_TOKEN:?set a Shippo test API token}
+      MARKETPLACE_TAX_PROVIDER: stripe
+      MARKETPLACE_TAX_STRIPE_SECRET_KEY: ${STRIPE_TAX_TEST_KEY:?set a Stripe Tax test API key}

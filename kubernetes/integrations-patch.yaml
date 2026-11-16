@@ -1,0 +1,25 @@
+# Strategic merge patch, NOT a standalone Deployment:
+# kubectl patch deployment marketplace --type=strategic --patch-file=kubernetes/integrations-patch.yaml
+# Requires externally operated Kafka and a marketplace-provider-secrets Secret.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: marketplace }
+spec:
+  template:
+    spec:
+      containers:
+        - name: marketplace
+          env:
+            - { name: MARKETPLACE_EVENTS_TRANSPORT, value: kafka }
+            - { name: KAFKA_BOOTSTRAP_SERVERS, value: 'kafka-bootstrap:9092' }
+            - { name: MARKETPLACE_EVENTS_REPLICATION, value: '3' }
+            - { name: MARKETPLACE_SHIPPING_PROVIDER, value: shippo }
+            - name: MARKETPLACE_SHIPPO_TOKEN
+              valueFrom:
+                secretKeyRef: { name: marketplace-provider-secrets, key: SHIPPO_TEST_TOKEN }
+            - { name: MARKETPLACE_TAX_PROVIDER, value: stripe }
+            - name: MARKETPLACE_TAX_STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: marketplace-provider-secrets, key: STRIPE_TAX_TEST_KEY }
+# Configure Kafka TLS/SASL/ACLs, topic min.insync.replicas/retention, endpoints,
+# provider accounts, merchant tax liability and profile metadata for your deployment.

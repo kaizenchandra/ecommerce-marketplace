@@ -1,0 +1,58 @@
+groups:
+  - name: marketplace
+    rules:
+      - alert: MarketplaceSagaFailures
+        expr: increase(marketplace_saga_failure_total[5m]) > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: 'Checkout failure; inspect workflows and provider ledger before retry' }
+      - alert: MarketplaceRefundFailures
+        expr: increase(marketplace_refund_failure_total[5m]) > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: 'Refund failure; inspect reserved refund amounts and provider references' }
+      - alert: MarketplaceAdmissionPressure
+        expr: rate(marketplace_admission_rejected_total[5m]) > 10
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: 'Admission overload; do not bypass concurrency limits' }
+      - alert: MarketplaceInventoryInvalid
+        expr: marketplace_inventory_invalid > 0
+        for: 0m
+        labels: { severity: critical }
+        annotations: { summary: 'Inventory invariant violation: stop checkout and reconcile physical movements' }
+      - alert: MarketplaceManualWorkflow
+        expr: marketplace_saga_manual > 0
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: 'Unresolved checkout outcomes require provider reconciliation' }
+      - alert: MarketplaceOutboxBacklog
+        expr: marketplace_outbox_pending > 100
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: 'Notification relay backlog; checkout remains durable' }
+      - alert: MarketplacePaymentEventManualReview
+        expr: marketplace_payment_events_manual > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: 'Stripe webhook inbox exhausted retries; inspect provider and retry original event' }
+      - alert: MarketplaceOutboxManualReview
+        expr: marketplace_outbox_manual > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: 'Kafka outbox retries exhausted; restore broker then retry original event IDs' }
+      - alert: MarketplaceCarrierManualReview
+        expr: marketplace_shipping_manual > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: 'Carrier polling exhausted retries; inspect tracking reference and provider status' }
+      - alert: MarketplaceLabelPurchaseUnresolved
+        expr: marketplace_labels_manual > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: 'Do not repeat label POST; reconcile the original operation/provider transaction' }
+      - alert: MarketplaceTaxReportingUnresolved
+        expr: marketplace_tax_reporting_manual > 0
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: 'Resolve original tax reporting reference before retrying; never choose a new operation key' }
